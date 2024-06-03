@@ -30,8 +30,6 @@
 <body data-bs-spy="scroll" data-bs-target="#navbar-navlist" data-bs-offset="71" onload='init()'>
 
 
-
-
     <!-- start section -->
     <section class="item-detail section bg-light">
         <!-- start container -->
@@ -82,8 +80,9 @@
                         </div>
                         <br>
                         <h6 class="fw-bold">Select your wallet</h6>
-                        <div class="d-flex" id="select_wallet">
-                            <button class="btn btn-outline-primary ms-2">NA</button>
+                        <br>
+                        <div id="connect_wallet">
+                            <button onclick="" id="connect_wallet_seed" style="display: none;" class="btn btn-outline-primary ms-2">NA</button>
                         </div>
 
                     </div>
@@ -111,12 +110,13 @@
 
 
 <script>
+
+    //Load
     async function init()
     {
-        console.log("🚀ONload")
+        document.body.setAttribute("data-layout-mode", "dark");
         const params = new URLSearchParams(window.location.search);
         const rawData = (new URLSearchParams(window.location.search)).get('tgWebAppStartParam');
-        console.log("rawData",rawData)
         if(rawData)
         {
             JSON.stringify
@@ -169,11 +169,13 @@
                     }
                     
                     var dex_url = await dexUrl(token.chain,token.dex,token.token.address)
-                    console.log(dex_url)
+                    console.log('🐞dex_url ',dex_url)
                     if(!isMobile())
                     {
-                        window.location.href = dex_url;
+                        // window.location.href = dex_url;
                     }
+
+                    await walletDeepLink(token.chain,dex_url)
                 }
                 
             }catch(e){
@@ -182,82 +184,84 @@
         }
     }
 
+    //Analyze the token information
     function tokenAnalyze(data)
-{
-    var ret = {
-        chain : data[0].chainId,
-        dex:data[0].dexId,
-        token : data[0].baseToken,
-        inform : data[0].info,
-        price : {
-            native : data[0].priceNative,
-            usd : data[0].priceUsd,
-        },
-        txns :{
-            total : 0,
-            buys : 0,
-            sells : 0,
-        },
-        volume : 0 ,
-        liquidity:{
-            total: 0,
-            usd: 0,
-            base: 0,
-        },
-        fdv:0,
-        time:data[0].pairCreatedAt,
-        explorer : "",
-    }
-
-    switch (ret.chain)
     {
-        case 'solana':
-            explorer = `https://solscan.io/address/${ret.token.address}`
-            break;
-        default : 
-            break;
+        var ret = {
+            chain : data[0].chainId,
+            dex:data[0].dexId,
+            token : data[0].baseToken,
+            inform : data[0].info,
+            price : {
+                native : data[0].priceNative,
+                usd : data[0].priceUsd,
+            },
+            txns :{
+                total : 0,
+                buys : 0,
+                sells : 0,
+            },
+            volume : 0 ,
+            liquidity:{
+                total: 0,
+                usd: 0,
+                base: 0,
+            },
+            fdv:0,
+            time:data[0].pairCreatedAt,
+            explorer : "",
+        }
+
+        switch (ret.chain)
+        {
+            case 'solana':
+                explorer = `https://solscan.io/address/${ret.token.address}`
+                break;
+            default : 
+                break;
+        }
+
+        data.forEach(e => {
+            //Txn informations
+            try{
+                ret.txns.total +=( e.txns.h24.buys+e.txns.h24.sells)
+                ret.txns.buys += e.txns.h24.buys
+                ret.txns.sells += e.txns.h24.sells
+        
+                //Vol
+                ret.volume+=e.volume.h24
+        
+                //Liquidity
+                ret.liquidity.total += e.liquidity.usd
+                ret.liquidity.usd += e.liquidity.usd
+                ret.liquidity.quote += e.liquidity.base
+        
+                //fdv
+                ret.fdv += e.fdv
+            }catch(e){}
+
+        });
+        return ret;
+
     }
-
-    data.forEach(e => {
-        //Txn informations
-        try{
-            ret.txns.total +=( e.txns.h24.buys+e.txns.h24.sells)
-            ret.txns.buys += e.txns.h24.buys
-            ret.txns.sells += e.txns.h24.sells
-    
-            //Vol
-            ret.volume+=e.volume.h24
-    
-            //Liquidity
-            ret.liquidity.total += e.liquidity.usd
-            ret.liquidity.usd += e.liquidity.usd
-            ret.liquidity.quote += e.liquidity.base
-    
-            //fdv
-            ret.fdv += e.fdv
-        }catch(e){}
-
-    });
-    return ret;
-
-}
-
+    //Do fetch request
     async function requester(url, requestOptions) {
-    try {
-        return (await fetch(url, requestOptions)).json()
-    } catch (e) {
-        console.log("🐞 req error", e)
+        try {
+            return (await fetch(url, requestOptions)).json()
+        } catch (e) {
+            console.log("🐞 req error", e)
+        }
+        return false;
     }
-    return false;
-}
-
+    //Check if it works in mobile
     function isMobile() {
         let flag = navigator.userAgent.match(
             /(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i
         );
         return flag;
     }
-
+    
+    //Generate url to dex
     async function dexUrl(chain, dex,contract)
     {
         var dex_url = false;
@@ -280,6 +284,142 @@
                 break;
         }   
         return dex_url;
+    }
+
+    //To generate deeplink wallet connect for mobile users in different chains. 
+    async function walletDeepLink(chain,link)
+    {
+        console.log("🐞walletDeepLink")
+        var wallets = []
+        switch (chain)
+        {
+            case "solana":
+                //Phantom
+                //Okex
+                //Solflare
+                wallets.push(
+                    phantomDeepLink(link)
+                )
+                wallets.push(
+                    okexDeepLink(link)
+                )
+                // wallets.push(
+                //     solflareDeepLink(link)
+                // )
+                break;
+            default : 
+                //Phantom
+                //Metamask
+                //Okex
+                //IMtoken
+                //Trustwallet
+                //Tpwallet
+
+                wallets.push(
+                    phantomDeepLink(link)
+                )
+                wallets.push(
+                    okexDeepLink(link)
+                )
+                wallets.push(
+                    metamaskDeepLink(link)
+                )
+                wallets.push(
+                    imtokenDeepLink(link)
+                )
+                wallets.push(
+                    trustDeepLink(link)
+                )
+                break;
+        }
+
+        console.log('working wallets : ' ,wallets)
+        wallet_list = document.getElementById('connect_wallet');
+        wallets.forEach(e => {
+            seed = document.getElementById('connect_wallet_seed').cloneNode(true)
+            seed.style.display='inline'
+            seed.id = e.name;
+            seed.innerHTML = e.name;
+            seed.onclick = ()=>{
+                e.action()
+            }
+            wallet_list.appendChild(seed)
+        });
+        console.log(wallet_list)
+    }
+
+    /**
+     *  Deeplink functions 
+     **/
+    const baseUrl = 'tokenshare.tonspay.top'
+    function phantomDeepLink(link)
+    {
+        const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+        console.log("🐞 phantomDeepLink ",target)
+        return {
+                name:"Phantom",
+                action:()=>{
+
+                    window.open(`https://phantom.app/ul/browse/${target}`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                }
+            }
+    }
+    function okexDeepLink(link)
+    {
+        const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+        return  {
+                            name:"Okex web3",
+                            action:()=>{
+                                window.open(`https://www.okx.com/download?deeplink=okx://wallet/dapp/url?dappUrl=${target}`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                            }
+                        }
+    }
+
+    function metamaskDeepLink(link)
+    {
+        const target = encodeURI(`${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+        return {
+                name:"Metamask",
+                action:()=>{
+                    window.open(`https://metamask.app.link/dapp/${target}`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                }
+            }
+    }
+
+    function trustDeepLink(link)
+    {
+        const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+        return {
+                name:"Trust Wallet",
+                action:()=>{
+                    
+                    window.open(`https://link.trustwallet.com/open_url?url=${target}`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no")
+                }
+            }
+    }
+
+    function solflareDeepLink(link)
+    {
+        const target = encodeURI(`${baseUrl}/api/proxy/${Buffer.from(link).toString('hex')}`)
+        console.log(`https://solflare.com/ul/v1/browse/${target}?ref=0.com`)
+        return {
+                name:"Solflare",
+                action:()=>{
+                    
+                    window.open(`https://solflare.com/ul/v1/browse/${target}?ref=0.com`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                }
+            }
+    }
+    
+    function imtokenDeepLink(link)
+    {
+        const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+        return {
+                name:"imToken",
+                action:()=>{
+                    window.open(`imtokenv2://navigate/DappView?url=${target}?ref=`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                }
+            }
     }
 </script>
 
