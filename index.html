@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Tokenshare</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content=" ">
+    <meta name="keywords" content="">
+    <meta content="Themesdesign" name="author">
+
+    <!-- Bootstrap css -->
+    <link rel="stylesheet" href="static/css/bootstrap.min.css" type="text/css" id="bootstrap-style">
+
+    <!-- Material Icon Css -->
+    <link rel="stylesheet" href="static/css/materialdesignicons.min.css" type="text/css">
+
+    <!-- Unicon Css -->
+    <link rel="stylesheet" href="static/css/line.css">
+
+    <!-- Swiper Css -->
+    <link rel="stylesheet" href="static/css/tiny-slider.css" type="text/css">
+    <link rel="stylesheet" href="static/css/swiper.min.css" type="text/css">
+
+    <!-- Custom Css -->
+    <link rel="stylesheet" href="static/css/style.min.css" type="text/css">
+
+</head>
+
+<body data-bs-spy="scroll" data-bs-target="#navbar-navlist" data-bs-offset="71" onload='init()'>
+
+
+
+
+    <!-- start section -->
+    <section class="item-detail section bg-light">
+        <!-- start container -->
+        <div class="container">
+            <div class="row align-items-center justify-content-center">
+                <div class="col-lg-8">
+                    <div class="inner-heading text-center">
+                        <div class="mt-4">
+                            <h1 class="fw-bold" id="token_symbol">NA</h1>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+
+            <div class="row mt-5 align-items-center">
+                <div class="col-lg-6">
+                    <div class="back-home-image pe-4">
+                        <img id='token_img' src="" alt="" class=" image-fill">
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="backhome-content mt-4 mt-lg-0">
+                        <h2 class="fw-bold" id="token_name">NA</h2>
+                        <div class="d-flex mt-3 align-items-center" id="token_social">
+
+                        </div>
+                        <hr class="my-4">
+                        <div class="row ">
+                            <div class="col-lg-6">
+                                <h6 class="fw-bold mb-1" >Price</h6>
+                                <p class="fw-semibold" id = 'token_price'></p>
+                            </div>
+                            <div class="col-lg-6">
+                                <h6 class="fw-bold mb-1">Liqudity</h6>
+                                <p class="fw-semibold"  id = 'token_liqudity'></p>
+                            </div>
+                            <div class="col-lg-6">
+                                <h6 class="fw-bold mb-1" >24H Volume</h6>
+                                <p class="fw-semibold" id="token_volume"></p>
+                            </div>
+
+                            <div class="col-lg-6">
+                                <h6 class="fw-bold mb-1">FDA</h6>
+                                <p class="fw-semibold"  id="token_fda"></p>
+                            </div>
+                        </div>
+                        <br>
+                        <h6 class="fw-bold">Select your wallet</h6>
+                        <div class="d-flex" id="select_wallet">
+                            <button class="btn btn-outline-primary ms-2">NA</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- end container -->
+    </section>
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    <script type="text/javascript">
+        window.Buffer = window.Buffer??buffer.Buffer;
+    </script>
+    <!--Bootstrap Js-->
+    <script src="static/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Slider Js -->
+    <script src="static/js/tiny-slider.js"></script>
+    <script src="static/js/swiper.min.js"></script>
+
+    <!-- counter -->
+    <script src="static/js/counter.init.js"></script>
+
+    <!-- App Js -->
+    <script src="static/js/app.js"></script>
+
+
+<script>
+    async function init()
+    {
+        console.log("🚀ONload")
+        const params = new URLSearchParams(window.location.search);
+        const rawData = (new URLSearchParams(window.location.search)).get('tgWebAppStartParam');
+        console.log("rawData",rawData)
+        if(rawData)
+        {
+            JSON.stringify
+            try{
+                const data = JSON.parse(
+                    Buffer.from(rawData,'hex').toString('utf-8')
+                )
+                var token;
+                if(data.t == '0')
+                {
+                    //short version
+                    token = await requester(
+                        `https://api.dexscreener.com/latest/dex/search/?q=${data.d}`,{
+                            method: "GET",
+                            headers: {},
+                            redirect: 'follow'
+                        }
+                    )
+                    token = token.pairs;
+                    token = tokenAnalyze(token);
+                }else{
+                    //full version
+                    token = data.d;
+                    console.log(token)
+                }
+                if(token)
+                {
+                    console.log(token)
+                    //Draw the page . 
+                    document.getElementById('token_symbol').innerHTML = token.token.symbol;
+                    document.getElementById('token_name').innerHTML = token.token.name;
+                    document.getElementById('token_price').innerHTML = `<p class="fw-semibold"><span class="text-muted"> $${token.price.usd}</span></p>`
+                    document.getElementById('token_liqudity').innerHTML = `<p class="fw-semibold"><span class="text-muted"> $${token.liquidity.usd}</span></p>`
+                    document.getElementById('token_volume').innerHTML = `<p class="fw-semibold">$${token.volume}</p>`
+                    document.getElementById('token_fda').innerHTML = `<p class="fw-semibold">$${token.fdv}</p>`
+
+                    document.getElementById('token_img').src = token.inform.imageUrl
+
+                    if(token.inform.websites&& token.inform.websites.length>0  && token.inform.websites[0].url)
+                    {
+                        document.getElementById('token_social').innerHTML+=
+                        `<a id="token_website" href="${token.inform.websites[0].url}"><span class="badge rounded-pill bg-white box-shadow text-dark f-16 fw-normal py-2 px-3">Website</a>`
+                    }
+                    if(token.inform.socials.length>0)
+                    {
+                        token.inform.socials.forEach(e => {
+                            document.getElementById('token_social').innerHTML+=
+                        `<a id="token_website" href="${e.url}"><span class="badge rounded-pill bg-white box-shadow text-dark f-16 fw-normal py-2 px-3">${e.type}</a>`
+                        });
+                    }
+                    
+                    var dex_url = await dexUrl(token.chain,token.dex,token.token.address)
+                    console.log(dex_url)
+                    if(!isMobile())
+                    {
+                        window.location.href = dex_url;
+                    }
+                }
+                
+            }catch(e){
+                console.error(e)
+            }
+        }
+    }
+
+    function tokenAnalyze(data)
+{
+    var ret = {
+        chain : data[0].chainId,
+        dex:data[0].dexId,
+        token : data[0].baseToken,
+        inform : data[0].info,
+        price : {
+            native : data[0].priceNative,
+            usd : data[0].priceUsd,
+        },
+        txns :{
+            total : 0,
+            buys : 0,
+            sells : 0,
+        },
+        volume : 0 ,
+        liquidity:{
+            total: 0,
+            usd: 0,
+            base: 0,
+        },
+        fdv:0,
+        time:data[0].pairCreatedAt,
+        explorer : "",
+    }
+
+    switch (ret.chain)
+    {
+        case 'solana':
+            explorer = `https://solscan.io/address/${ret.token.address}`
+            break;
+        default : 
+            break;
+    }
+
+    data.forEach(e => {
+        //Txn informations
+        try{
+            ret.txns.total +=( e.txns.h24.buys+e.txns.h24.sells)
+            ret.txns.buys += e.txns.h24.buys
+            ret.txns.sells += e.txns.h24.sells
+    
+            //Vol
+            ret.volume+=e.volume.h24
+    
+            //Liquidity
+            ret.liquidity.total += e.liquidity.usd
+            ret.liquidity.usd += e.liquidity.usd
+            ret.liquidity.quote += e.liquidity.base
+    
+            //fdv
+            ret.fdv += e.fdv
+        }catch(e){}
+
+    });
+    return ret;
+
+}
+
+    async function requester(url, requestOptions) {
+    try {
+        return (await fetch(url, requestOptions)).json()
+    } catch (e) {
+        console.log("🐞 req error", e)
+    }
+    return false;
+}
+
+    function isMobile() {
+        let flag = navigator.userAgent.match(
+            /(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i
+        );
+        return flag;
+    }
+
+    async function dexUrl(chain, dex,contract)
+    {
+        var dex_url = false;
+        switch(chain)
+        {
+            case 'solana':
+                if(dex == 'raydium')
+                {
+                    dex_url = `https://raydium.io/swap/?inputMint=sol&outputMint=${contract}`
+                }
+            default:
+                if(dex == 'uniswap')
+                {
+                    dex_url = `https://app.uniswap.org/swap?&outputCurrency=${contract}`
+                }
+                if(dex == 'pancakeswap')
+                {
+                    dex_url = `https://pancakeswap.finance/swap?outputCurrency=${contract}`
+                }
+                break;
+        }   
+        return dex_url;
+    }
+</script>
+
+</body>
+
+</html>
