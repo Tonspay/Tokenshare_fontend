@@ -61,21 +61,21 @@
                         <hr class="my-4">
                         <div class="row ">
                             <div class="col-lg-6">
-                                <h6 class="fw-bold mb-1" >Price</h6>
-                                <p class="fw-semibold" id = 'token_price'></p>
+                                <h6 class="fw-bold mb-1">Price</h6>
+                                <p class="fw-semibold" id='token_price'></p>
                             </div>
                             <div class="col-lg-6">
                                 <h6 class="fw-bold mb-1">Liqudity</h6>
-                                <p class="fw-semibold"  id = 'token_liqudity'></p>
+                                <p class="fw-semibold" id='token_liqudity'></p>
                             </div>
                             <div class="col-lg-6">
-                                <h6 class="fw-bold mb-1" >24H Volume</h6>
+                                <h6 class="fw-bold mb-1">24H Volume</h6>
                                 <p class="fw-semibold" id="token_volume"></p>
                             </div>
 
                             <div class="col-lg-6">
                                 <h6 class="fw-bold mb-1">FDA</h6>
-                                <p class="fw-semibold"  id="token_fda"></p>
+                                <p class="fw-semibold" id="token_fda"></p>
                             </div>
                         </div>
                         <br>
@@ -109,319 +109,302 @@
     <script src="static/js/app.js"></script>
 
 
-<script>
-
-    //Load
-    async function init()
-    {
-        document.body.setAttribute("data-layout-mode", "dark");
-        const params = new URLSearchParams(window.location.search);
-        const rawData = (new URLSearchParams(window.location.search)).get('tgWebAppStartParam');
-        if(rawData)
-        {
-            JSON.stringify
-            try{
-                const data = JSON.parse(
-                    Buffer.from(rawData,'hex').toString('utf-8')
-                )
-                var token;
-                if(data.t == '0')
-                {
-                    //short version
-                    token = await requester(
-                        `https://api.dexscreener.com/latest/dex/search/?q=${data.d}`,{
-                            method: "GET",
-                            headers: {},
-                            redirect: 'follow'
-                        }
+    <script>
+        //Load
+        async function init() {
+            document.body.setAttribute("data-layout-mode", "dark");
+            const params = new URLSearchParams(window.location.search);
+            const rawData = (new URLSearchParams(window.location.search)).get('tgWebAppStartParam');
+            if (rawData) {
+                JSON.stringify
+                try {
+                    const data = JSON.parse(
+                        Buffer.from(rawData, 'hex').toString('utf-8')
                     )
-                    token = token.pairs;
-                    token = tokenAnalyze(token);
-                }else{
-                    //full version
-                    token = data.d;
-                    console.log(token)
-                }
-                if(token)
-                {
-                    console.log(token)
-                    //Draw the page . 
-                    document.getElementById('token_symbol').innerHTML = token.token.symbol;
-                    document.getElementById('token_name').innerHTML = token.token.name;
-                    document.getElementById('token_price').innerHTML = `<p class="fw-semibold"><span class="text-muted"> $${token.price.usd}</span></p>`
-                    document.getElementById('token_liqudity').innerHTML = `<p class="fw-semibold"><span class="text-muted"> $${token.liquidity.usd}</span></p>`
-                    document.getElementById('token_volume').innerHTML = `<p class="fw-semibold">$${token.volume}</p>`
-                    document.getElementById('token_fda').innerHTML = `<p class="fw-semibold">$${token.fdv}</p>`
-
-                    document.getElementById('token_img').src = token.inform.imageUrl
-
-                    if(token.inform.websites&& token.inform.websites.length>0  && token.inform.websites[0].url)
-                    {
-                        document.getElementById('token_social').innerHTML+=
-                        `<a id="token_website" href="${token.inform.websites[0].url}"><span class="badge rounded-pill bg-white box-shadow text-dark f-16 fw-normal py-2 px-3">Website</a>`
-                    }
-                    if(token.inform.socials.length>0)
-                    {
-                        token.inform.socials.forEach(e => {
-                            document.getElementById('token_social').innerHTML+=
-                        `<a id="token_website" href="${e.url}"><span class="badge rounded-pill bg-white box-shadow text-dark f-16 fw-normal py-2 px-3">${e.type}</a>`
-                        });
-                    }
-                    
-                    var dex_url = await dexUrl(token.chain,token.dex,token.token.address)
-                    console.log('🐞dex_url ',dex_url)
-                    if(!isMobile())
-                    {
-                        // window.location.href = dex_url;
-                    }
-
-                    await walletDeepLink(token.chain,dex_url)
-                }
-                
-            }catch(e){
-                console.error(e)
-            }
-        }
-    }
-
-    //Analyze the token information
-    function tokenAnalyze(data)
-    {
-        var ret = {
-            chain : data[0].chainId,
-            dex:data[0].dexId,
-            token : data[0].baseToken,
-            inform : data[0].info,
-            price : {
-                native : data[0].priceNative,
-                usd : data[0].priceUsd,
-            },
-            txns :{
-                total : 0,
-                buys : 0,
-                sells : 0,
-            },
-            volume : 0 ,
-            liquidity:{
-                total: 0,
-                usd: 0,
-                base: 0,
-            },
-            fdv:0,
-            time:data[0].pairCreatedAt,
-            explorer : "",
-        }
-
-        switch (ret.chain)
-        {
-            case 'solana':
-                explorer = `https://solscan.io/address/${ret.token.address}`
-                break;
-            default : 
-                break;
-        }
-
-        data.forEach(e => {
-            //Txn informations
-            try{
-                ret.txns.total +=( e.txns.h24.buys+e.txns.h24.sells)
-                ret.txns.buys += e.txns.h24.buys
-                ret.txns.sells += e.txns.h24.sells
-        
-                //Vol
-                ret.volume+=e.volume.h24
-        
-                //Liquidity
-                ret.liquidity.total += e.liquidity.usd
-                ret.liquidity.usd += e.liquidity.usd
-                ret.liquidity.quote += e.liquidity.base
-        
-                //fdv
-                ret.fdv += e.fdv
-            }catch(e){}
-
-        });
-        return ret;
-
-    }
-    //Do fetch request
-    async function requester(url, requestOptions) {
-        try {
-            return (await fetch(url, requestOptions)).json()
-        } catch (e) {
-            console.log("🐞 req error", e)
-        }
-        return false;
-    }
-    //Check if it works in mobile
-    function isMobile() {
-        let flag = navigator.userAgent.match(
-            /(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i
-        );
-        return flag;
-    }
-    
-    //Generate url to dex
-    async function dexUrl(chain, dex,contract)
-    {
-        var dex_url = false;
-        switch(chain)
-        {
-            case 'solana':
-                if(dex == 'raydium')
-                {
-                    dex_url = `https://raydium.io/swap/?inputMint=sol&outputMint=${contract}`
-                }
-            default:
-                if(dex == 'uniswap')
-                {
-                    dex_url = `https://app.uniswap.org/swap?&outputCurrency=${contract}`
-                }
-                if(dex == 'pancakeswap')
-                {
-                    dex_url = `https://pancakeswap.finance/swap?outputCurrency=${contract}`
-                }
-                break;
-        }   
-        return dex_url;
-    }
-
-    //To generate deeplink wallet connect for mobile users in different chains. 
-    async function walletDeepLink(chain,link)
-    {
-        console.log("🐞walletDeepLink")
-        var wallets = []
-        switch (chain)
-        {
-            case "solana":
-                //Phantom
-                //Okex
-                //Solflare
-                wallets.push(
-                    phantomDeepLink(link)
-                )
-                wallets.push(
-                    okexDeepLink(link)
-                )
-                // wallets.push(
-                //     solflareDeepLink(link)
-                // )
-                break;
-            default : 
-                //Phantom
-                //Metamask
-                //Okex
-                //IMtoken
-                //Trustwallet
-                //Tpwallet
-
-                wallets.push(
-                    phantomDeepLink(link)
-                )
-                wallets.push(
-                    okexDeepLink(link)
-                )
-                wallets.push(
-                    metamaskDeepLink(link)
-                )
-                wallets.push(
-                    imtokenDeepLink(link)
-                )
-                wallets.push(
-                    trustDeepLink(link)
-                )
-                break;
-        }
-
-        console.log('working wallets : ' ,wallets)
-        wallet_list = document.getElementById('connect_wallet');
-        wallets.forEach(e => {
-            seed = document.getElementById('connect_wallet_seed').cloneNode(true)
-            seed.style.display='inline'
-            seed.id = e.name;
-            seed.innerHTML = e.name;
-            seed.onclick = ()=>{
-                e.action()
-            }
-            wallet_list.appendChild(seed)
-        });
-        console.log(wallet_list)
-    }
-
-    /**
-     *  Deeplink functions 
-     **/
-    const baseUrl = 'tokenshare.tonspay.top'
-    function phantomDeepLink(link)
-    {
-        const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
-        console.log("🐞 phantomDeepLink ",target)
-        return {
-                name:"Phantom",
-                action:()=>{
-
-                    window.open(`https://phantom.app/ul/browse/${target}`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
-                }
-            }
-    }
-    function okexDeepLink(link)
-    {
-        const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
-        return  {
-                            name:"Okex web3",
-                            action:()=>{
-                                window.open(`https://www.okx.com/download?deeplink=okx://wallet/dapp/url?dappUrl=${target}`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                    var token;
+                    if (data.t == '0') {
+                        //short version
+                        token = await requester(
+                            `https://api.dexscreener.com/latest/dex/search/?q=${data.d}`, {
+                                method: "GET",
+                                headers: {},
+                                redirect: 'follow'
                             }
+                        )
+                        token = token.pairs;
+                        token = tokenAnalyze(token);
+                    } else if (data.t == '2') {
+                        //TON token . do redirect now .
+                        token = data.d;
+                        window.location.href = `https://ton.diamonds/dex/swap?inputToken=TON&outputToken=${token.token.address}`
+                    } else {
+                        //full version
+                        token = data.d;
+                        console.log(token)
+                    }
+                    if (token) {
+                        console.log(token)
+                            //Draw the page . 
+                        document.getElementById('token_symbol').innerHTML = token.token.symbol;
+                        document.getElementById('token_name').innerHTML = token.token.name;
+                        document.getElementById('token_price').innerHTML = `<p class="fw-semibold"><span class="text-muted"> $${token.price.usd}</span></p>`
+                        document.getElementById('token_liqudity').innerHTML = `<p class="fw-semibold"><span class="text-muted"> $${token.liquidity.usd}</span></p>`
+                        document.getElementById('token_volume').innerHTML = `<p class="fw-semibold">$${token.volume}</p>`
+                        document.getElementById('token_fda').innerHTML = `<p class="fw-semibold">$${token.fdv}</p>`
+
+                        document.getElementById('token_img').src = token.inform.imageUrl
+
+                        if (token.inform.websites && token.inform.websites.length > 0 && token.inform.websites[0].url) {
+                            document.getElementById('token_social').innerHTML +=
+                                `<a id="token_website" href="${token.inform.websites[0].url}"><span class="badge rounded-pill bg-white box-shadow text-dark f-16 fw-normal py-2 px-3">Website</a>`
                         }
-    }
+                        if (token.inform.socials.length > 0) {
+                            token.inform.socials.forEach(e => {
+                                document.getElementById('token_social').innerHTML +=
+                                    `<a id="token_website" href="${e.url}"><span class="badge rounded-pill bg-white box-shadow text-dark f-16 fw-normal py-2 px-3">${e.type}</a>`
+                            });
+                        }
 
-    function metamaskDeepLink(link)
-    {
-        const target = encodeURI(`${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
-        return {
-                name:"Metamask",
-                action:()=>{
-                    window.open(`https://metamask.app.link/dapp/${target}`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
-                }
-            }
-    }
+                        var dex_url = await dexUrl(token.chain, token.dex, token.token.address)
+                        console.log('🐞dex_url ', dex_url)
+                        if (!isMobile()) {
+                            window.location.href = dex_url;
+                        }
 
-    function trustDeepLink(link)
-    {
-        const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
-        return {
-                name:"Trust Wallet",
-                action:()=>{
-                    
-                    window.open(`https://link.trustwallet.com/open_url?url=${target}`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no")
-                }
-            }
-    }
+                        await walletDeepLink(token.chain, dex_url)
+                    }
 
-    function solflareDeepLink(link)
-    {
-        const target = encodeURI(`${baseUrl}/api/proxy/${Buffer.from(link).toString('hex')}`)
-        console.log(`https://solflare.com/ul/v1/browse/${target}?ref=0.com`)
-        return {
-                name:"Solflare",
-                action:()=>{
-                    
-                    window.open(`https://solflare.com/ul/v1/browse/${target}?ref=0.com`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                } catch (e) {
+                    console.error(e)
                 }
             }
-    }
-    
-    function imtokenDeepLink(link)
-    {
-        const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
-        return {
-                name:"imToken",
-                action:()=>{
-                    window.open(`imtokenv2://navigate/DappView?url=${target}?ref=`,"newwindow","height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+        }
+
+        //Analyze the token information
+        function tokenAnalyze(data) {
+            var ret = {
+                chain: data[0].chainId,
+                dex: data[0].dexId,
+                token: data[0].baseToken,
+                inform: data[0].info,
+                price: {
+                    native: data[0].priceNative,
+                    usd: data[0].priceUsd,
+                },
+                txns: {
+                    total: 0,
+                    buys: 0,
+                    sells: 0,
+                },
+                volume: 0,
+                liquidity: {
+                    total: 0,
+                    usd: 0,
+                    base: 0,
+                },
+                fdv: 0,
+                time: data[0].pairCreatedAt,
+                explorer: "",
+            }
+
+            switch (ret.chain) {
+                case 'solana':
+                    explorer = `https://solscan.io/address/${ret.token.address}`
+                    break;
+                default:
+                    break;
+            }
+
+            data.forEach(e => {
+                //Txn informations
+                try {
+                    ret.txns.total += (e.txns.h24.buys + e.txns.h24.sells)
+                    ret.txns.buys += e.txns.h24.buys
+                    ret.txns.sells += e.txns.h24.sells
+
+                    //Vol
+                    ret.volume += e.volume.h24
+
+                    //Liquidity
+                    ret.liquidity.total += e.liquidity.usd
+                    ret.liquidity.usd += e.liquidity.usd
+                    ret.liquidity.quote += e.liquidity.base
+
+                    //fdv
+                    ret.fdv += e.fdv
+                } catch (e) {}
+
+            });
+            return ret;
+
+        }
+        //Do fetch request
+        async function requester(url, requestOptions) {
+            try {
+                return (await fetch(url, requestOptions)).json()
+            } catch (e) {
+                console.log("🐞 req error", e)
+            }
+            return false;
+        }
+        //Check if it works in mobile
+        function isMobile() {
+            let flag = navigator.userAgent.match(
+                /(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i
+            );
+            return flag;
+        }
+
+        //Generate url to dex
+        async function dexUrl(chain, dex, contract) {
+            var dex_url = false;
+            switch (chain) {
+                case 'solana':
+                    if (dex == 'raydium') {
+                        dex_url = `https://raydium.io/swap/?inputMint=sol&outputMint=${contract}`
+                    }
+                default:
+                    if (dex == 'uniswap') {
+                        dex_url = `https://app.uniswap.org/swap?&outputCurrency=${contract}`
+                    }
+                    if (dex == 'pancakeswap') {
+                        dex_url = `https://pancakeswap.finance/swap?outputCurrency=${contract}`
+                    }
+                    break;
+            }
+            return dex_url;
+        }
+
+        //To generate deeplink wallet connect for mobile users in different chains. 
+        async function walletDeepLink(chain, link) {
+            console.log("🐞walletDeepLink")
+            var wallets = []
+            switch (chain) {
+                case "solana":
+                    //Phantom
+                    //Okex
+                    //Solflare
+                    wallets.push(
+                        phantomDeepLink(link)
+                    )
+                    wallets.push(
+                            okexDeepLink(link)
+                        )
+                        // wallets.push(
+                        //     solflareDeepLink(link)
+                        // )
+                    break;
+                default:
+                    //Phantom
+                    //Metamask
+                    //Okex
+                    //IMtoken
+                    //Trustwallet
+                    //Tpwallet
+
+                    wallets.push(
+                        phantomDeepLink(link)
+                    )
+                    wallets.push(
+                        okexDeepLink(link)
+                    )
+                    wallets.push(
+                        metamaskDeepLink(link)
+                    )
+                    wallets.push(
+                        imtokenDeepLink(link)
+                    )
+                    wallets.push(
+                        trustDeepLink(link)
+                    )
+                    break;
+            }
+
+            console.log('working wallets : ', wallets)
+            wallet_list = document.getElementById('connect_wallet');
+            wallets.forEach(e => {
+                seed = document.getElementById('connect_wallet_seed').cloneNode(true)
+                seed.style.display = 'inline'
+                seed.id = e.name;
+                seed.innerHTML = e.name;
+                seed.onclick = () => {
+                    e.action()
+                }
+                wallet_list.appendChild(seed)
+            });
+            console.log(wallet_list)
+        }
+
+        /**
+         *  Deeplink functions 
+         **/
+        const baseUrl = 'tokenshare.tonspay.top'
+
+        function phantomDeepLink(link) {
+            const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+            console.log("🐞 phantomDeepLink ", target)
+            return {
+                name: "Phantom",
+                action: () => {
+
+                    window.open(`https://phantom.app/ul/browse/${target}`, "newwindow", "height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
                 }
             }
-    }
-</script>
+        }
+
+        function okexDeepLink(link) {
+            const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+            return {
+                name: "Okex web3",
+                action: () => {
+                    window.open(`https://www.okx.com/download?deeplink=okx://wallet/dapp/url?dappUrl=${target}`, "newwindow", "height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                }
+            }
+        }
+
+        function metamaskDeepLink(link) {
+            const target = encodeURI(`${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+            return {
+                name: "Metamask",
+                action: () => {
+                    window.open(`https://metamask.app.link/dapp/${target}`, "newwindow", "height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                }
+            }
+        }
+
+        function trustDeepLink(link) {
+            const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+            return {
+                name: "Trust Wallet",
+                action: () => {
+
+                    window.open(`https://link.trustwallet.com/open_url?url=${target}`, "newwindow", "height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no")
+                }
+            }
+        }
+
+        function solflareDeepLink(link) {
+            const target = encodeURI(`${baseUrl}/api/proxy/${Buffer.from(link).toString('hex')}`)
+            console.log(`https://solflare.com/ul/v1/browse/${target}?ref=0.com`)
+            return {
+                name: "Solflare",
+                action: () => {
+
+                    window.open(`https://solflare.com/ul/v1/browse/${target}?ref=0.com`, "newwindow", "height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                }
+            }
+        }
+
+        function imtokenDeepLink(link) {
+            const target = encodeURI(`https://${baseUrl}/api/redirect/${Buffer.from(link).toString('hex')}`)
+            return {
+                name: "imToken",
+                action: () => {
+                    window.open(`imtokenv2://navigate/DappView?url=${target}?ref=`, "newwindow", "height=800, width=400, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, status=no");
+                }
+            }
+        }
+    </script>
 
 </body>
 
